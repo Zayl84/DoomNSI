@@ -12,9 +12,14 @@ window2d = pg.window.Window(320, 200, "Plan 2D", vsync=False)
 
 # variables globales 
 x, y, a = 160, 100, 0 # position et angle du joueur
-# mode de déplacement du joueur: 0 = déplacement latéral, 1 = rotation
-r = 1
-keys = {"avancer":False, "reculer":False, "gauche":False, "droite":False}
+# vitesses de translation, de rotation. Facteur multiplicatif du mode "flash"
+Vt, Vr, facteur_flash = 2.0, pi/48, 2
+
+keys = {"avancer":False, "reculer":False,
+        "tourner_gauche":False, "tourner_droite":False,
+        "strafe_gauche": False, "strafe_droite": False,
+        "strafe":False, "flash":False}
+
 # "batch" du joueur
 joueur = pg.graphics.Batch()
 # détection d'un touche pressée au clavier
@@ -23,9 +28,8 @@ def on_key_press(symbol, modifiers):
   global x, y, a, r, keys
   print("Touche pressée n°", symbol)
   # shift pour changer de mode de déplacement joueur
-  if symbol == pg.window.key.LSHIFT:
-      if r == 0: r = 1
-      else: r = 0
+  if symbol == pg.window.key.LSHIFT: keys["flash"] = True
+  keys["strafe"] = (pg.window.key.Q or pg.window.key.D or pg.window.LCTRL)
   # touches de déplacement
   if symbol == pg.window.key.DOWN or symbol == pg.window.key.S: # reculer
       keys["reculer"] = True
@@ -33,9 +37,9 @@ def on_key_press(symbol, modifiers):
       keys["avancer"] = True
   # touches pour pivoter
   if symbol == pg.window.key.LEFT or symbol == pg.window.key.Q:
-      keys["gauche"] = True
+      keys["tourner_gauche"] = True
   if symbol == pg.window.key.RIGHT or symbol == pg.window.key.D:
-      keys["droite"] = True
+      keys["tourner_droite"] = True
     
     
 
@@ -44,37 +48,37 @@ def on_key_press(symbol, modifiers):
 def on_key_release(symbol, modifiers):
     global keys
     print("Touche relâchée n°", symbol)
+    keys["strafe"] = not (pg.window.key.Q or pg.window.key.D or pg.window.LCTRL)
+    if symbol == pg.window.key.LSHIFT: keys["flash"] = False
     if symbol == pg.window.key.UP or symbol == pg.window.key.Z:
         keys["avancer"] = False
     if symbol == pg.window.key.DOWN or symbol == pg.window.key.S:
         keys["reculer"] = False
     if symbol == pg.window.key.LEFT or symbol == pg.window.key.Q:
-        keys["gauche"] = False
+        keys["tourner_gauche"] = False
     if symbol == pg.window.key.RIGHT or symbol == pg.window.key.D:
-        keys["droite"] = False
+        keys["tourner_droite"] = False
     
 
 
 # évènement principal : rendu graphique
 @window2d.event
 def on_draw():
-    global x, y, a
+    global x, y, a, Vt, Vr, facteur_flash
+    Dx, Dy, Da, F = 0, 0, 0, 1
+    if keys["flash"]: F = facteur_flash
     if keys["avancer"]:
-            x += 2*cos(a)
-            y += 2*sin(a)
+        Dx, Dy = Vt*cos(a), Vt*sin(a)
     if keys["reculer"]:
-        x -= 2*cos(a)
-        y -= 2*sin(a)
-    if keys["gauche"]:
-       if r: a += pi/48
-       else:
-          x += 2*cos(a+(pi/2))
-          y += 2*sin(a+(pi/2))
-    if keys["droite"]:
-       if r: a -= pi/48
-       else:
-          x -= 2*cos(a+(pi/2))
-          y -= 2*sin(a+(pi/2))
+        Dx, Dy = -Vt*cos(a), -Vt*sin(a)
+    if keys["strafe"] or keys["strafe_gauche"] or keys["strafe_droite"]:
+        if keys["tourner_gauche"]: Dx, Dy = -Vt*sin(a), Vt*cos(a)
+        if keys['tourner_droite']: Dx, Dy = Vt*sin(a), -Vt*cos(a)
+    elif keys["tourner_gauche"]: Da = Vr
+    elif keys["tourner_droite"]: Da = -Vr
+    x += Dx*F
+    y += Dy*F
+    a += Da*F
     window2d.clear()
     # le joueur comme un cercle
     circle = pg.shapes.Circle(x, y, 10, color =(50, 225, 30), batch = joueur)
